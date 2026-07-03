@@ -1,0 +1,54 @@
+name: Release Plugin
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci || true
+
+      - name: Build plugin
+        run: |
+          if [ -f "package.json" ]; then
+            npm run build || true
+          fi
+
+      - name: Create plugin zip
+        run: |
+          mkdir -p dist
+          # 打包所有插件文件（排除 .git, node_modules, dist 本身）
+          zip -r dist/plugin.zip . \
+            -x "*.git*" \
+            -x "node_modules/*" \
+            -x "dist/*" \
+            -x "*.yml" \
+            -x ".github/*"
+          echo "Plugin packaged:"
+          unzip -l dist/plugin.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ inputs.version }}
+          name: v${{ inputs.version }}
+          generate_release_notes: true
+          files: dist/plugin.zip
